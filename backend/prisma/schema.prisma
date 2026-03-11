@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  name      String?
+  roadmaps  Roadmap[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Roadmap {
+  id        String   @id @default(uuid())
+  topic     String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  steps     Step[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Step {
+  id               String   @id @default(uuid())
+  title            String
+  theory           String
+  estimated_time   String
+  youtube_query    String
+  youtube_video_id String?
+  is_completed     Boolean  @default(false)
+  order            Int
+  roadmapId        String
+  roadmap          Roadmap  @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
