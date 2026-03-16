@@ -1,39 +1,54 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
-const { GoogleGenAI } = require('@google/genai');
+const Groq = require('groq-sdk');
+const ytSearch = require('yt-search');
 
 const prisma = new PrismaClient();
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 
 // POST /api/roadmaps/generate
 router.post('/generate', async (req, res) => {
-  const { topic } = req.body;
+  const { topic, depth = 'standard' } = req.body;
   
   if (!topic) {
     return res.status(400).json({ error: 'Topic is required' });
   }
 
   try {
+    let depthInstruction = "Provide around 10 steps to master the topic from beginner to advanced.";
+    if (depth === 'brief') {
+      depthInstruction = "Provide a brief introductory roadmap of around 5 steps.";
+    } else if (depth === 'comprehensive') {
+      depthInstruction = "Provide an extensive, comprehensive roadmap of at least 12 to 15 steps to break down the topic from beginner to expert.";
+    }
+
     const systemPrompt = `
       You are an expert personalized learning architect.
       Generate a structured learning roadmap for the topic: "${topic}".
-      Return exactly a JSON array of steps (no markdown wrappers or other text).
-      Each object must have the following keys:
-      - title (string): Title of the step.
-      - theory (string): Detailed markdown theory explaining this step (at least 2-3 paragraphs).
-      - estimated_time (string): Estimated time to learn (e.g. "2 hours").
-      - youtube_query (string): A precise search query to find the best YouTube tutorial for this specific step.
-      - order (integer): The 1-indexed order of this step in the roadmap.
-      Provide around 5 to 7 steps to master the topic from beginner to intermediate.
+      
+      ${depthInstruction}
+      
+      Return a JSON object with a single key "steps" containing an array of objects.
+      Example:
+      {
+        "steps": [
+          {
+            "title": "...",
+            "theory": "...",
+            "estimated_time": "...",
+            "youtube_query": "...",
+            "order": 1
+          }
+        ]
+      }
     `;
 
-    // 1. Call Gemini to generate the steps
-    // Mocking response if no API key is set
+    // 1. Call Groq to generate the steps
     let aiSteps = [];
-    if (!process.env.GEMINI_API_KEY) {
-      console.log('No Gemini API key found, returning mock data.');
+    if (!process.env.GROQ_API_KEY) {
+      console.log('No Groq API key found, returning mock data.');
       aiSteps = [
         {
           title: "Introduction to " + topic,
@@ -44,32 +59,54 @@ router.post('/generate', async (req, res) => {
         }
       ];
     } else {
-      const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
-        contents: systemPrompt,
+      const chatCompletion = await groq.chat.completions.create({
+        messages: [{ role: 'user', content: systemPrompt }],
+        model: 'llama-3.1-8b-instant',
+        temperature: 0.5,
+        max_tokens: 8000,
+        response_format: { type: 'json_object' } // Groq supports JSON mode!
       });
-      // Try parsing the text output directly as JSON
-      let text = response.text;
+      
+      let text = chatCompletion.choices[0].message.content;
+      
+      // Safety parsing for markdown code blocks just in case
       if (text.startsWith('\`\`\`json')) {
-        text = text.substring(7, text.length - 3);
+         text = text.substring(7, text.length - 3);
       }
-      aiSteps = JSON.parse(text);
+      
+      // JSON mode expects an object, so the LLM usually wraps it like { "steps": [...] }
+      const parsedJSON = JSON.parse(text);
+      if (parsedJSON.steps && Array.isArray(parsedJSON.steps)) {
+         aiSteps = parsedJSON.steps;
+      } else if (Array.isArray(parsedJSON)) {
+         aiSteps = parsedJSON;
+      } else {
+         // Fallback if LLM randomly returned object keys
+         aiSteps = Object.values(parsedJSON).find(val => Array.isArray(val)) || [];
+      }
     }
     
-    // 2. Fetch YouTube Videos for each step (skipped if no API key)
+    // 2. Fetch YouTube Videos for each step (fallback to yt-search if no API key)
     const finalizedSteps = [];
     for (const step of aiSteps) {
       let youtube_video_id = null;
-      if (YOUTUBE_API_KEY) {
-        try {
+      try {
+        if (YOUTUBE_API_KEY) {
           const ytRes = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=1&q=${encodeURIComponent(step.youtube_query)}&type=video&key=${YOUTUBE_API_KEY}`);
           const ytData = await ytRes.json();
           if (ytData.items && ytData.items.length > 0) {
             youtube_video_id = ytData.items[0].id.videoId;
           }
-        } catch (ytError) {
-          console.error('Error fetching YouTube video:', ytError);
+        } else {
+          // Free fallback using yt-search scraper
+          const r = await ytSearch(step.youtube_query);
+          const videos = r.videos.slice(0, 1);
+          if (videos.length > 0) {
+            youtube_video_id = videos[0].videoId;
+          }
         }
+      } catch (ytError) {
+        console.error('Error fetching YouTube video:', ytError);
       }
       
       finalizedSteps.push({
@@ -78,9 +115,7 @@ router.post('/generate', async (req, res) => {
       });
     }
 
-    // 3. Save roadmap to Database (if Prisma connection works)
-    // We will save to DB only if we know the DB is up 
-    // To be safe because we don't know if Supabase is connected yet, we could just return first.
+    // 3. Save roadmap to Database
     let createdRoadmap = null;
     try {
       // Create Roadmap
@@ -101,12 +136,11 @@ router.post('/generate', async (req, res) => {
         include: {
           steps: {
             orderBy: { order: 'asc' }
-          } // returning the updated steps with their IDs
+          }
         }
       });
     } catch (dbError) {
       console.warn("DB not connected yet, returning without saving to DB:", dbError.message);
-      // Construct a mock roadmap
       createdRoadmap = {
         id: "mock-id",
         topic,

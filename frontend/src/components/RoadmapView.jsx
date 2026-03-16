@@ -4,7 +4,7 @@ import { CheckCircle2, Circle, Clock, Youtube, ExternalLink, ChevronDown, Chevro
 import ReactMarkdown from 'react-markdown';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 export default function RoadmapView({ roadmap, setRoadmap }) {
   const steps = roadmap.steps || [];
@@ -84,10 +84,12 @@ export default function RoadmapView({ roadmap, setRoadmap }) {
             >
               
               {/* Timeline Dot */}
-              <div className="absolute left-8 md:left-1/2 w-8 h-8 rounded-full bg-[#0A0A0A] border-4 border-neutral-800 -translate-x-1/2 flex items-center justify-center z-10 transition-colors duration-300" 
+              <div 
+                onClick={() => setOpenStepId(isOpen ? null : step.id)}
+                className="absolute left-8 md:left-1/2 w-8 h-8 rounded-full bg-[#0A0A0A] border-4 border-neutral-800 -translate-x-1/2 flex items-center justify-center z-10 transition-all duration-300 hover:scale-125 cursor-pointer hover:shadow-[0_0_15px_rgba(168,85,247,0.5)]" 
                 style={{ borderColor: step.is_completed ? '#a855f7' : '#262626' }}
               >
-                {step.is_completed && <div className="w-2.5 h-2.5 rounded-full bg-purple-500"></div>}
+                {step.is_completed && <div className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,1)]"></div>}
               </div>
 
               {/* Empty space for alternating layout */}
@@ -97,14 +99,14 @@ export default function RoadmapView({ roadmap, setRoadmap }) {
               <div className={`ml-14 md:ml-0 md:w-5/12 ${isLeft ? 'md:pr-8 text-left md:text-right' : 'md:pl-8 text-left'}`}>
                 <div 
                   onClick={() => setOpenStepId(isOpen ? null : step.id)}
-                  className={`bg-neutral-900 border ${isOpen ? 'border-purple-500/50 shadow-[0_0_30px_rgba(168,85,247,0.15)]' : 'border-white/10 hover:border-white/20'} rounded-2xl p-6 cursor-pointer transition-all duration-300 group`}
+                  className={`bg-neutral-900/80 backdrop-blur-xl border ${isOpen ? 'border-purple-500/50 shadow-[0_0_30px_rgba(168,85,247,0.15)] bg-white/5' : 'border-white/10 hover:border-white/20 hover:bg-white/5 hover:shadow-xl hover:-translate-y-1'} rounded-2xl p-6 cursor-pointer transition-all duration-300 group`}
                 >
                   <div className={`flex items-start justify-between gap-4 ${isLeft ? 'md:flex-row-reverse' : ''}`}>
                     <div className={`flex-1 ${isLeft ? 'md:text-right text-left' : 'text-left'}`}>
                       <span className="text-xs font-bold text-purple-400 tracking-wider uppercase mb-2 block">Step {step.order}</span>
-                      <h3 className={`text-xl font-bold text-white mb-2 ${step.is_completed ? 'line-through text-neutral-500' : ''}`}>{step.title}</h3>
-                      <div className={`flex items-center gap-2 text-sm text-neutral-400 mb-4 ${isLeft ? 'md:justify-end' : ''}`}>
-                        <Clock className="w-4 h-4" />
+                      <h3 className={`text-xl font-bold text-white mb-2 ${step.is_completed ? 'line-through text-neutral-500' : 'group-hover:text-purple-300 transition-colors'}`}>{step.title}</h3>
+                      <div className={`flex items-center gap-2 text-sm text-neutral-300 mb-4 ${isLeft ? 'md:justify-end' : ''}`}>
+                        <Clock className="w-4 h-4 text-purple-400" />
                         <span>{step.estimated_time}</span>
                       </div>
                     </div>

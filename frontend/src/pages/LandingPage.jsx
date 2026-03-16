@@ -4,10 +4,11 @@ import { Sparkles, ArrowRight, BookOpen, BrainCircuit, Loader2 } from 'lucide-re
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 export default function LandingPage() {
   const [topic, setTopic] = useState('');
+  const [depth, setDepth] = useState('standard');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -17,7 +18,7 @@ export default function LandingPage() {
     
     setIsLoading(true);
     try {
-      const { data } = await axios.post(`${API_URL}/roadmaps/generate`, { topic });
+      const { data } = await axios.post(`${API_URL}/roadmaps/generate`, { topic, depth });
       // navigate to the roadmap page once it's created
       if (data && data.id) {
         navigate(`/roadmap/${data.id}`, { state: { roadmap: data } });
@@ -65,7 +66,7 @@ export default function LandingPage() {
           transition={{ duration: 0.8, ease: "easeOut" }}
           className="max-w-3xl w-full"
         >
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-purple-300 mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-purple-300 mb-8 backdrop-blur-sm shadow-[0_0_20px_rgba(168,85,247,0.15)]">
             <Sparkles className="w-3 h-3" />
             <span>AI-Powered Learning Architect</span>
           </div>
@@ -79,32 +80,50 @@ export default function LandingPage() {
             Enter any topic and let our AI instantly generate a personalized, step-by-step roadmap complete with deep theory and curated video resources.
           </p>
 
-          <form onSubmit={handleGenerate} className="relative group max-w-2xl mx-auto">
-            <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-500"></div>
-            <div className="relative flex items-center bg-neutral-900 border border-white/10 rounded-2xl p-2 shadow-2xl transition-all focus-within:border-purple-500/50">
-              <BookOpen className="w-6 h-6 text-neutral-500 ml-4 hidden sm:block" />
-              <input
-                type="text"
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                placeholder="What do you want to learn today? (e.g. Advanced System Design)"
-                className="w-full bg-transparent border-none outline-none text-white px-4 py-3 sm:py-4 placeholder-neutral-500 font-medium"
-                disabled={isLoading}
-              />
-              <button
-                type="submit"
-                disabled={isLoading || !topic.trim()}
-                className="flex items-center gap-2 bg-white text-black px-6 py-3 sm:py-4 rounded-xl font-semibold hover:bg-neutral-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    <span>Generate</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
+          <form onSubmit={handleGenerate} className="relative group max-w-2xl mx-auto z-20">
+            <div className="absolute -inset-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl blur opacity-25 group-hover:opacity-60 transition duration-700"></div>
+            <div className="relative flex flex-col bg-neutral-900/80 backdrop-blur-xl border border-white/10 rounded-2xl p-2 shadow-2xl transition-all duration-300 focus-within:border-purple-500/50 focus-within:shadow-[0_0_40px_rgba(168,85,247,0.2)]">
+              <div className="flex w-full items-center">
+                <BookOpen className="w-6 h-6 text-neutral-500 ml-4 hidden sm:block transition-colors group-focus-within:text-purple-400" />
+                <input
+                  type="text"
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
+                  placeholder="What do you want to learn today? (e.g. Advanced System Design)"
+                  className="w-full bg-transparent border-none outline-none text-white px-4 py-3 sm:py-4 placeholder-neutral-500 font-medium z-10"
+                  disabled={isLoading}
+                />
+                <button
+                  type="submit"
+                  disabled={isLoading || !topic.trim()}
+                  className="relative z-10 flex items-center gap-2 bg-white text-black px-6 py-3 sm:py-4 rounded-xl font-semibold hover:bg-neutral-200 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      <span>Generate</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </div>
+              
+              {/* Depth Selector */}
+              <div className="w-full flex items-center justify-center gap-2 pt-3 pb-1 mt-1 border-t border-white/5">
+                <span className="text-[10px] text-neutral-500 font-bold tracking-widest uppercase mr-2">DEPTH:</span>
+                {['brief', 'standard', 'comprehensive'].map(d => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDepth(d)}
+                    disabled={isLoading}
+                    className={`px-4 py-1 rounded-lg text-xs font-semibold capitalize transition-all duration-300 ${depth === d ? 'bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)]' : 'text-neutral-400 hover:text-white hover:bg-white/5'} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
             </div>
           </form>
 
@@ -112,7 +131,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20 text-left border-t border-white/5 pt-12">
             {[
               { title: "Deep AI Theory", desc: "Structured markdown explanations generated by Gemini 1.5 Flash." },
-              { title: "Curated Videos", desc: "Automatic YouTube integrations fetching the most relevant tutorials." },
+              { title: "Curated Videos", desc: "Automatic YouTube scraping fetching the most relevant tutorials." },
               { title: "Progress Tracking", desc: "Interactive timeline that saves your learning progress persistently." }
             ].map((feature, idx) => (
               <motion.div 
@@ -120,13 +139,14 @@ export default function LandingPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.2 + (idx * 0.1) }}
-                className="p-6 rounded-2xl bg-white/5 border border-white/5"
+                whileHover={{ y: -5, scale: 1.02 }}
+                className="p-6 rounded-2xl bg-white/5 border border-white/5 hover:border-purple-500/30 hover:bg-white/10 transition-all duration-300 cursor-default"
               >
-                <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center mb-4">
-                  <div className="w-4 h-4 rounded-full bg-purple-500"></div>
+                <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center mb-4 border border-purple-500/20">
+                  <div className="w-4 h-4 rounded-full bg-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.8)]"></div>
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">{feature.title}</h3>
-                <p className="text-sm text-neutral-400">{feature.desc}</p>
+                <p className="text-sm text-neutral-400 leading-relaxed">{feature.desc}</p>
               </motion.div>
             ))}
           </div>
